@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>STAR DRIFTER — esploratore di mondi</title>
+<style>
+  :root{
+    --ink:#dfe8ff; --dim:#6b7a9c; --accent:#7df9ff; --amber:#ffcf5c; --bg:#05070f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:var(--bg);overflow:hidden;
+    font-family:'Press Start 2P', ui-monospace, 'Courier New', monospace;
+    -webkit-user-select:none;user-select:none;touch-action:none}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+  /* CRT vignette + scanlines, molto leggeri */
+  #crt{position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.10) 0px, rgba(0,0,0,0.10) 1px, transparent 1px, transparent 3px),
+      radial-gradient(ellipse at center, transparent 55%, rgba(0,0,10,0.55) 100%);
+    mix-blend-mode:multiply}
+  @media (prefers-reduced-motion: no-preference){
+    #crt::after{content:"";position:absolute;inset:0;
+      background:linear-gradient(180deg, transparent 0%, rgba(125,249,255,0.025) 50%, transparent 100%);
+      animation:sweep 9s linear infinite}
+    @keyframes sweep{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
+  }
+  /* Touch controls */
+  #touch{position:fixed;inset:0;z-index:6;pointer-events:none;display:none}
+  body.touch #touch{display:block}
+  .tbtn{position:absolute;pointer-events:auto;border:2px solid rgba(125,249,255,.35);
+    background:rgba(10,16,32,.42);border-radius:12px;color:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-size:14px;
+    -webkit-tap-highlight-color:transparent}
+  .tbtn:active{background:rgba(125,249,255,.22)}
+  #dpad{position:absolute;left:18px;bottom:20px;width:132px;height:132px;pointer-events:none}
+  #dpad .tbtn{width:46px;height:46px}
+  #bU{left:43px;top:0}#bD{left:43px;bottom:0}#bL{left:0;top:43px}#bR{right:0;top:43px}
+  #stickZone{position:absolute;left:18px;bottom:20px;width:132px;height:132px;border-radius:50%;
+    background:rgba(10,16,32,.38);border:2px solid rgba(125,249,255,.32);pointer-events:auto}
+  #stickKnob{position:absolute;width:54px;height:54px;left:39px;top:39px;border-radius:50%;
+    background:rgba(125,249,255,.3);border:2px solid rgba(125,249,255,.6);pointer-events:none}
+  #bBrake{left:158px;bottom:20px;width:46px;height:46px;border-radius:50%;font-size:16px}
+  #bA{right:22px;bottom:78px;width:62px;height:62px;border-radius:50%;color:var(--amber);border-color:rgba(255,207,92,.4)}
+  #bB{right:96px;bottom:26px;width:56px;height:56px;border-radius:50%}
+  #mute{position:fixed;top:10px;right:12px;z-index:7;width:38px;height:30px;font-size:11px;
+    border-radius:8px;cursor:pointer}
+
+  /* ---- Sidebar / PipBoy ---- */
+  #sidebar{position:fixed;top:0;left:0;right:0;z-index:9;
+    font-family:'Press Start 2P', ui-monospace, monospace;
+    background:linear-gradient(180deg, rgba(6,10,22,0.94), rgba(6,10,22,0.82));
+    border-bottom:2px solid rgba(125,249,255,0.35);
+    transition:opacity .25s; -webkit-user-select:none;user-select:none}
+  #sidebar.hidden{opacity:0;pointer-events:none}
+  #sb-top{display:flex;align-items:center;height:52px;padding:0 8px;gap:8px}
+  #sb-portrait{width:38px;height:38px;flex:none;border:2px solid rgba(125,249,255,.4);
+    border-radius:4px;background:#0a0f1e;image-rendering:pixelated}
+  #sb-stats{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;justify-content:center}
+  #sb-hullrow{display:flex;align-items:center;gap:5px}
+  #sb-hulllabel{font-size:8px;color:var(--dim);white-space:nowrap}
+  #sb-hullbar{flex:1;height:8px;background:rgba(255,92,116,0.15);border:1px solid rgba(255,92,116,.4);
+    border-radius:2px;overflow:hidden;max-width:160px}
+  #sb-hullfill{height:100%;background:#ff5c74;transition:width .25s}
+  #sb-loc{font-size:8px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #sb-tabs{display:flex;flex:none;gap:4px}
+  .sb-tab{font-family:inherit;font-size:8px;color:var(--dim);background:rgba(10,16,32,.5);
+    border:1px solid rgba(125,249,255,.3);border-radius:4px;padding:7px 6px;cursor:pointer;
+    -webkit-tap-highlight-color:transparent}
+  .sb-tab.active{color:var(--accent);border-color:var(--accent);background:rgba(125,249,255,.14)}
+  .sb-tab.locked{color:#3a465e;border-color:rgba(255,255,255,.1)}
+  #sb-drawer{max-height:0;overflow:hidden;transition:max-height .25s ease;
+    border-bottom:2px solid rgba(125,249,255,0.35);background:rgba(6,10,22,0.94)}
+  #sb-drawer.open{max-height:240px}
+  #sb-drawer-inner{padding:10px 12px;font-size:9px;line-height:2;color:var(--ink);
+    max-height:220px;overflow-y:auto}
+  #sb-drawer-inner .dim{color:var(--dim)}
+  #sb-drawer-inner .amber{color:var(--amber)}
+  .eqrow{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 4px}
+  .eqbtn{font-family:inherit;font-size:7px;color:var(--ink);background:rgba(10,16,32,.7);
+    border:1px solid rgba(125,249,255,.3);border-radius:5px;padding:8px 7px;line-height:1.4;
+    -webkit-tap-highlight-color:transparent}
+  .eqbtn.on{color:#05070f;background:var(--accent);border-color:var(--accent)}
+  #groundMapMini{display:block;margin-top:4px;border:1px solid rgba(125,249,255,.3);
+    border-radius:4px;image-rendering:pixelated}
+
+  /* ---- Negozio ---- */
+  #shopPanel{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
+    background:rgba(4,6,14,.74);font-family:'Press Start 2P', monospace}
+  #shopPanel.hidden{display:none}
+  #shopBox{width:min(86vw,340px);max-height:72vh;overflow:auto;background:rgba(8,12,26,.97);
+    border:2px solid rgba(125,249,255,.5);border-radius:8px;padding:14px}
+  #shopTitle{color:var(--amber);font-size:11px;margin-bottom:10px;text-align:center}
+  .shopItem{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:9px 0;border-bottom:1px solid rgba(125,249,255,.15);font-size:9px;color:var(--ink)}
+  .shopItemIcon{width:28px;height:28px;object-fit:contain;image-rendering:pixelated;flex-shrink:0}
+  .shopItemInfo b{font-size:9px}
+  .shopItemInfo .dim{font-size:7px;color:var(--dim);margin-top:4px;line-height:1.6}
+  .shopBuy{font-family:inherit;font-size:8px;color:#05070f;background:var(--accent);
+    border:none;border-radius:4px;padding:9px 8px;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+  .shopBuy:disabled{background:#2a3550;color:#5a6a8a}
+  #shopClose{margin-top:12px;width:100%;font-family:inherit;font-size:9px;color:var(--ink);
+    background:rgba(255,92,116,.18);border:1px solid rgba(255,92,116,.5);border-radius:6px;padding:10px;
+    -webkit-tap-highlight-color:transparent}
+
+  /* ---- Dialogo ---- */
+  #dlgPanel{position:fixed;left:10px;right:10px;bottom:190px;z-index:25;
+    font-family:'Press Start 2P', monospace;-webkit-user-select:none;user-select:none}
+  #dlgPanel.hidden{display:none}
+  #dlgBox{display:flex;gap:10px;align-items:flex-start;background:rgba(8,12,26,.96);
+    border:2px solid rgba(125,249,255,.5);border-radius:8px;padding:12px;
+    box-shadow:0 4px 24px rgba(0,0,0,.5);transition:opacity 1.3s ease}
+  #dlgPortrait{width:44px;height:44px;flex:none;border:2px solid rgba(185,140,255,.55);
+    border-radius:4px;background:#0a0f1e;image-rendering:pixelated}
+  #dlgContent{flex:1;min-width:0}
+  #dlgName{font-size:8px;color:var(--amber);margin-bottom:7px}
+  #dlgText{font-size:9px;line-height:1.9;color:var(--ink)}
+  #dlgNext{font-size:8px;color:var(--dim);text-align:right;margin-top:6px;animation:dlgblink 1s infinite}
+  @keyframes dlgblink{0%,100%{opacity:.9}50%{opacity:.25}}
+  /* Un momento della storia si legge diverso da una chiacchiera qualunque: bordo/alone propri,
+     e alla chiusura una dissolvenza invece dello scatto immediato (23/08/2026). */
+  #dlgPanel.story #dlgBox{border-color:rgba(255,207,92,.85);
+    box-shadow:0 4px 24px rgba(0,0,0,.5),0 0 20px rgba(255,207,92,.4)}
+  #dlgPanel.story #dlgPortrait{border-color:rgba(255,207,92,.7)}
+  #dlgPanel.closing #dlgBox{opacity:0}
+  #dlgPanel.closing #dlgNext{visibility:hidden}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="crt"></div>
+<button id="mute" class="tbtn">♪</button>
+<div id="touch">
+  <div id="dpad">
+    <div class="tbtn" id="bU">▲</div><div class="tbtn" id="bD">▼</div>
+    <div class="tbtn" id="bL">◀</div><div class="tbtn" id="bR">▶</div>
+  </div>
+  <div id="stickZone"><div id="stickKnob"></div></div>
+  <div class="tbtn" id="bBrake">&#9632;</div>
+  <div class="tbtn" id="bA">A</div>
+  <div class="tbtn" id="bB">B</div>
+</div>
+<div id="sidebar" class="hidden">
+  <div id="sb-top">
+    <canvas id="sb-portrait" width="19" height="19"></canvas>
+    <div id="sb-stats">
+      <div id="sb-hullrow">
+        <span id="sb-hulllabel">SCAFO</span>
+        <div id="sb-hullbar"><div id="sb-hullfill" style="width:100%"></div></div>
+      </div>
+      <div id="sb-loc">—</div>
+    </div>
+    <div id="sb-tabs">
+      <button class="sb-tab active" data-tab="status">STAT</button>
+      <button class="sb-tab" data-tab="equip">EQUIP</button>
+      <button class="sb-tab" data-tab="map">MAPPA</button>
+    </div>
+  </div>
+  <div id="sb-drawer"><div id="sb-drawer-inner"></div></div>
+</div>
+<div id="shopPanel" class="hidden">
+  <div id="shopBox">
+    <div id="shopTitle">MERCATO STAZIONE</div>
+    <div id="shopList"></div>
+    <button id="shopClose">CHIUDI</button>
+  </div>
+</div>
+<div id="dlgPanel" class="hidden">
+  <div id="dlgBox">
+    <canvas id="dlgPortrait" width="22" height="22"></canvas>
+    <div id="dlgContent">
+      <div id="dlgName"></div>
+      <div id="dlgText"></div>
+      <div id="dlgNext">▼ tocca</div>
+    </div>
+  </div>
+</div>
+<script src="forge-pack.js"></script>
+<script src="fleet-pack.js"></script>
+<script src="world-pack.js"></script>
+<script src="art-pack.js"></script>
+<script src="story-pack.js"></script>
+<!-- Skin nave dal ship_parts_mixer (04/08/2026, sessione 1 PLAN_Tool_Scalabili). Va DOPO
+     art-pack.js: aggiunge solo nomad_rust, il resto del pack resta com'e'. Per tornare
+     alla nave precedente basta togliere questa riga. -->
+<script src="art-pack.nomad_rust.js"></script>
+<!-- struttura componibile di prova (fase B2): il pod con l'antenna che gira -->
+<script src="art-pack.radar.js"></script>
+<!-- nave elite dei pirati (fase B4): chiude l'aggancio lasciato aperto il 27/07 -->
+<script src="art-pack.pirate_elite.js"></script>
+<script src="equip_lib.js"></script>
+<script>
+"use strict";
+/* =========================================================
+   STAR DRIFTER — esplora la galassia, atterra, colleziona.
+   Spazio: volo libero + ondate di invader.
+   Pianeti: esplorazione a griglia stile GB.
+   ========================================================= */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W=960, H=600, DPR=1;
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio||1);
+  W = Math.floor(window.innerWidth); H = Math.floor(window.innerHeight);
+  cv.width = W*DPR; cv.height = H*DPR;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.imageSmoothingEnabled = false;
+}
+window.addEventListener('resize', resize); resize();
+
+/* ---------- RNG deterministico ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rand = mulberry32(Date.now()&0xffff);
+const TAU = Math.PI*2;
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+const lerp=(a,b,t)=>a+(b-a)*t;
+const dist=(x1,y1,x2,y2)=>Math.hypot(x2-x1,y2-y1);
+
+/* ---------- Input ---------- */
+const keys = {};
+const pressed = {};            // edge-trigger (consumato con take())
+window.addEventListener('keydown', e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+  const k = norm(e.key);
+  if(!keys[k]) pressed[k]=true;
+  keys[k]=true; audio.unlock();
+  /* "Nuova partita" deve ricaricare la pagina (file://, il gioco non ha un server): un reload
+     chiesto da dentro il loop di gioco (requestAnimationFrame, non l'evento tasto stesso) perde
+     il "gesto utente" agli occhi del browser e viene bloccato — "Unsafe attempt to load URL...
+     unique security origin" (segnalato dall'utente 23/08/2026, riprodotto in Brave). Qui invece
+     scatta nello STESSO evento sincrono del tasto, dentro un vero gesto utente. */
+  if(k==='n' && typeof state!=='undefined' && state==='win' && winT>1){
+    if(window.STORY) STORY.reset();
+    location.reload();
+  }
+});
+window.addEventListener('keyup', e=>{ keys[norm(e.key)]=false; });
+function norm(k){
+  k = k.length===1 ? k.toLowerCase() : k;
+  if(k==='w')return'ArrowUp'; if(k==='s')return'ArrowDown';
+  if(k==='a')return'ArrowLeft'; if(k==='d')return'ArrowRight';
+  if(k===' ')return'Space';
+  return k;
+}
+function take(k){ if(pressed[k]){ pressed[k]=false; return true; } return false; }
+
+/* Touch */
+if(matchMedia('(pointer:coarse)').matches) document.body.classList.add('touch');
+function bindTouch(id, key){
+  const el = document.getElementById(id);
+  const on = e=>{e.preventDefault(); if(!keys[key])pressed[key]=true; keys[key]=true; audio.unlock();};
+  const off= e=>{e.preventDefault(); keys[key]=false;};
+  el.addEventListener('touchstart',on,{passive:false});
+  el.addEventListener('touchend',off,{passive:false});
+  el.addEventListener('touchcancel',off,{passive:false});
+  el.addEventListener('mousedown',on); el.addEventListener('mouseup',off);
+}
+bindTouch('bU','ArrowUp'); bindTouch('bD','ArrowDown');
+bindTouch('bL','ArrowLeft'); bindTouch('bR','ArrowRight');
+bindTouch('bBrake','ArrowDown'); // freno (solo in volo)
+bindTouch('bA','Space');   // A = spara (ora funziona anche tenendo premuto)
+bindTouch('bB','e');       // B = atterra / decolla
+
+/* Joystick analogico: un solo trascinamento = direzione + spinta insieme */
+const stick={active:false,mag:0,angle:0};
+(function initStick(){
+  const zone=document.getElementById('stickZone'), knob=document.getElementById('stickKnob');
+  const KR=27; // raggio massimo di spostamento della nocca
+  let originX=0, originY=0, activeId=null;
+  function place(dx,dy){ knob.style.transform='translate('+dx+'px,'+dy+'px)'; }
+  function begin(id,x,y){
+    activeId=id; const r=zone.getBoundingClientRect();
+    originX=r.left+r.width/2; originY=r.top+r.height/2;
+    stick.active=true; audio.unlock(); drag(x,y);
+  }
+  function drag(x,y){
+    let dx=x-originX, dy=y-originY; const d=Math.hypot(dx,dy);
+    if(d>KR){ dx=dx/d*KR; dy=dy/d*KR; }
+    place(dx,dy);
+    stick.mag=Math.min(1,d/KR); stick.angle=Math.atan2(dy,dx);
+  }
+  function release(){ activeId=null; stick.active=false; stick.mag=0; place(0,0); }
+  zone.addEventListener('touchstart',e=>{e.preventDefault(); const t=e.changedTouches[0]; begin(t.identifier,t.clientX,t.clientY);},{passive:false});
+  zone.addEventListener('touchmove',e=>{ for(const t of e.changedTouches) if(t.identifier===activeId){ e.preventDefault(); drag(t.clientX,t.clientY); } },{passive:false});
+  zone.addEventListener('touchend',e=>{ for(const t of e.changedTouches) if(t.identifier===activeId) release(); },{passive:false});
+  zone.addEventListener('touchcancel',()=>release(),{passive:false});
+  zone.addEventListener('mousedown',e=>{
+    begin('m',e.clientX,e.clientY);
+    const mm=ev=>drag(ev.clientX,ev.clientY), mu=()=>{release(); window.removeEventListener('mousemove',mm); window.removeEventListener('mouseup',mu);};
+    window.addEventListener('mousemove',mm); window.addEventListener('mouseup',mu);
+  });
+})();
+
+/* Audio SFX + music engine: estratti in audio-engine.js, script src qui sotto — stessa
+   posizione originale nel flusso di esecuzione (split monolite, PLAN_Cantieri.md). */
+</script>
+<script src="audio-engine.js"></script>
+<script>
+"use strict";
+
+/* Sprite pixel-art (navi, invader, cristallo, stazione, eroe): estratti in sprites.js,
+   script src qui sotto — stessa posizione originale nel flusso di esecuzione. */
+</script>
+<script src="sprites.js"></script>
+<script>
+"use strict";
+
+/* ---------- Sistema stellare ---------- */
+/* BIOMES/PLANETS/WORLD_PACK + texture pianeta/stazione + starfield: estratti in world-gen.js,
+   script src qui sotto — stessa posizione originale nel flusso. */
+</script>
+<script src="world-gen.js"></script>
+<script>
+"use strict";
+
+/* ---------- Equipaggiamento ---------- */
+/* EQUIP_DB + merge pack + loadout iniziale: estratti in equip-db.js, script src qui sotto —
+   stessa posizione originale nel flusso di esecuzione. */
+</script>
+<script src="equip-db.js"></script>
+<script>
+"use strict";
+
+/* ---------- Stato di gioco ---------- */
+let state='title';
+let shake=0, msg=null, msgT=0;
+function say(text,dur=2.5){ msg=text; msgT=dur; }
+
+const ship={x:420,y:0,vx:0,vy:0,a:-Math.PI/2,hull:loadout.ship.maxHull,maxHull:loadout.ship.maxHull,inv:0,score:0,fireCd:0};
+let bullets=[],ebullets=[],invaders=[],particles=[],gbullets=[];
+let waveT=7, waveNum=0;
+let asteroids=[], astT=5;
+function mkAstPts(size){
+  const pts=[], n=9;
+  for(let i=0;i<n;i++){ const r2=size*(0.72+rand()*0.42), aa=i/n*TAU;
+    pts.push([Math.cos(aa)*r2, Math.sin(aa)*r2]); }
+  return pts;
+}
+function spawnAsteroid(x,y,size,vx,vy){
+  if(x===undefined){
+    const a=rand()*TAU, d=Math.max(W,H)*0.8+200;
+    x=ship.x+Math.cos(a)*d; y=ship.y+Math.sin(a)*d;
+    size=12+rand()*16;
+    const dir=a+Math.PI+(rand()-0.5)*0.9, sp=30+rand()*80;
+    vx=Math.cos(dir)*sp; vy=Math.sin(dir)*sp;
+  }
+  asteroids.push({x,y,vx,vy,size,pts:mkAstPts(size),
+    rot:rand()*TAU,rs:(rand()-0.5)*1.6,hp:size>20?3:2});
+}
+function breakAst(i){
+  const as=asteroids[i]; asteroids.splice(i,1);
+  puff(as.x,as.y,14,'#8a8f9e',110,0.6); puff(as.x,as.y,6,'#5a5f6e',70,0.5);
+  audio.boom(); shake=Math.min(shake+2,8); ship.score+=3;
+  if(as.size>19){
+    for(let k=0;k<2;k++){
+      const a=rand()*TAU, sp=40+rand()*60;
+      spawnAsteroid(as.x+(rand()-0.5)*10, as.y+(rand()-0.5)*10, as.size*0.55,
+        as.vx*0.4+Math.cos(a)*sp, as.vy*0.4+Math.sin(a)*sp);
+    }
+  }
+}
+let trans={t:0,dur:1,to:null,planet:null};
+let currentPlanet=null;
+
+/* ---------- Sidebar / PipBoy ---------- */
+const sbEl=document.getElementById('sidebar');
+const sbHullFill=document.getElementById('sb-hullfill');
+const sbHullLabel=document.getElementById('sb-hulllabel');
+const sbLoc=document.getElementById('sb-loc');
+const sbDrawer=document.getElementById('sb-drawer');
+const sbDrawerInner=document.getElementById('sb-drawer-inner');
+let sbTab='status';
+const SB_CONTENT={
+  status:()=>{
+    const got=PLANETS.reduce((s,p)=>s+p.done,0);
+    const planetsLine=PLANETS.map(p=>p.name+' '+p.done+'/'+CRYSTALS_PER_PLANET+(p.done>=CRYSTALS_PER_PLANET?' \u2713':'')).join(' &nbsp;\u00b7&nbsp; ');
+    return '<div class="amber">DIARIO DI BORDO</div>'
+      +'<div class="dim">Recupera i cristalli sui '+PLANETS.length+' pianeti.</div>'
+      +'<div>Totale '+got+'/'+TOTAL_CRYSTALS+' &nbsp;\u00b7&nbsp; Punti '+ship.score+'</div>'
+      +'<div class="dim">'+planetsLine+'</div>';
+  },
+  equip:()=>{
+    const cats=[['ship','ships','SCAFO'],['shipWeapon','shipWeapons','ARMA NAVE'],
+                ['suit','suits','TUTA'],['groundWeapon','groundWeapons','ARMA TERRA']];
+    let h='<div class="amber">EQUIPAGGIAMENTO — tocca per cambiare</div>';
+    for(const [slot,cat,label] of cats){
+      h+='<div class="dim" style="margin-top:5px">'+label+'</div><div class="eqrow">';
+      for(const id of owned[cat]){
+        const g=EQUIP_DB[cat][id]; if(!g) continue;
+        const on=loadout[slot].id===id;
+        h+='<button class="eqbtn'+(on?' on':'')+'" data-slot="'+slot+'" data-cat="'+cat+'" data-id="'+id+'">'
+          +g.name+(on?' \u2713':'')+'</button>';
+      }
+      h+='</div>';
+    }
+    return h;
+  },
+  /* Mappa a terra (23/08/2026): la scheda esisteva già come segnaposto ("locked", solo un
+     rimando al radar). A terra c'era zero orientamento sull'insieme della mappa — solo quel
+     che entra nello schermo mentre si cammina. Riusa dati già in memoria (planetMap.T/crystals/
+     critters), nessuna modifica al motore o al formato dei pack: stessa idea del radar spaziale
+     (drawSpaceHUD) ma per la griglia a terra. */
+  map:()=>{
+    if(state!=='planet' || !planetMap) return '<div class="amber">MAPPA</div><div class="dim">Disponibile quando sei a terra. In volo, consulta il radar in alto a destra.</div>';
+    return '<div class="amber">MAPPA — '+(currentPlanet?currentPlanet.name:'')+'</div><canvas id="groundMapMini" width="260" height="180"></canvas>';
+  }
+};
+function sbRenderDrawer(){
+  sbDrawerInner.innerHTML = SB_CONTENT[sbTab]();
+  if(sbTab==='map' && state==='planet' && planetMap) drawGroundMapMini();
+}
+function drawGroundMapMini(){
+  const cv=document.getElementById('groundMapMini'); if(!cv) return;
+  const g=cv.getContext('2d'), cw=cv.width, ch=cv.height;
+  g.fillStyle='rgba(5,7,15,0.6)'; g.fillRect(0,0,cw,ch);
+  const rows=planetMap.T.length, cols=planetMap.T[0].length;
+  const ts=Math.min((cw-8)/cols,(ch-8)/rows);
+  const ox=(cw-cols*ts)/2, oy=(ch-rows*ts)/2;
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    g.fillStyle = planetMap.T[y][x]>=2 ? 'rgba(125,249,255,0.12)' : 'rgba(125,249,255,0.03)';
+    g.fillRect(ox+x*ts,oy+y*ts,Math.ceil(ts),Math.ceil(ts));
+  }
+  if(planetMap.gates) for(const gt of planetMap.gates){
+    if(segno(gt.flag)) continue;   // aperto: non ingombra la lettura della mappa
+    g.fillStyle='#ff5c74'; g.fillRect(ox+gt.x*ts,oy+gt.y*ts,Math.ceil(ts),Math.ceil(ts));
+  }
+  if(planetMap.shop){ g.fillStyle='#ffcf5c'; g.fillRect(ox+planetMap.shop.x*ts-1,oy+planetMap.shop.y*ts-1,ts+2,ts+2); }
+  g.strokeStyle='#ffcf5c'; g.lineWidth=1.5;
+  g.strokeRect(ox+planetMap.sx*ts+1,oy+planetMap.sy*ts+1,ts-2,ts-2);
+  for(const c of planetMap.crystals) if(!c.got){
+    g.fillStyle='#8ef7ff'; g.beginPath();
+    g.arc(ox+c.x*ts+ts/2,oy+c.y*ts+ts/2,Math.max(1.5,ts*0.3),0,TAU); g.fill();
+  }
+  for(const cr of planetMap.critters){
+    g.fillStyle=cr.color||'#b98cff'; g.beginPath();
+    g.arc(ox+cr.tx*ts+ts/2,oy+cr.ty*ts+ts/2,Math.max(1.5,ts*0.3),0,TAU); g.fill();
+  }
+  g.fillStyle='#8dfd6a'; g.beginPath();
+  g.arc(ox+hero.tx*ts+ts/2,oy+hero.ty*ts+ts/2,Math.max(2,ts*0.4),0,TAU); g.fill();
+}
+sbDrawerInner.addEventListener('click', e=>{
+  const b=e.target.closest('.eqbtn'); if(!b) return;
+  e.stopPropagation(); audio.unlock();
+  const gear=EQUIP_DB[b.dataset.cat][b.dataset.id];
+  if(gear){ equipGear(b.dataset.slot, gear, false); sbRenderDrawer(); if(window.STORY) STORY.save(); }
+});
+document.querySelectorAll('.sb-tab').forEach(b=>{
+  b.addEventListener('click', e=>{
+    e.stopPropagation(); audio.unlock();
+    const tab=b.dataset.tab;
+    const already = sbTab===tab && sbDrawer.classList.contains('open');
+    document.querySelectorAll('.sb-tab').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    sbTab=tab; sbRenderDrawer();
+    sbDrawer.classList.toggle('open', !already);
+  });
+});
+const bBrakeEl=document.getElementById('bBrake');
+const dpadEl=document.getElementById('dpad');
+const stickZoneEl=document.getElementById('stickZone');
+function syncSidebar(){
+  const show = (state==='space'||state==='planet'||state==='landing'||state==='takeoff');
+  sbEl.classList.toggle('hidden', !show);
+  const inSpaceMode = (state==='space'||state==='title');
+  bBrakeEl.style.display = inSpaceMode ? '' : 'none';
+  stickZoneEl.style.display = inSpaceMode ? '' : 'none';
+  dpadEl.style.display = (state==='planet') ? '' : 'none';
+  if(!show) return;
+  if(state==='planet'||state==='landing'){
+    sbHullLabel.textContent='TUTA';
+    sbHullFill.style.width = Math.max(0, hero.hp/hero.maxHp*100)+'%';
+  } else {
+    sbHullLabel.textContent='SCAFO';
+    sbHullFill.style.width = Math.max(0, ship.hull/ship.maxHull*100)+'%';
+  }
+  const got=PLANETS.reduce((s,p)=>s+p.done,0);
+  const where = (state==='planet'||state==='landing') && currentPlanet ? currentPlanet.name : 'SPAZIO APERTO';
+  /* Se la storia ha dato un obiettivo, quello ha la precedenza sul conteggio cristalli: in un
+     gioco che racconta, "cosa devo fare" conta piu' di "quanti me ne mancano" (06/08/2026). */
+  let ob=null;
+  try { ob = window.STORY && STORY.state && STORY.state.obiettivo; } catch(e){}
+  if(ob) sbLoc.textContent = where+' - '+ob;
+  else sbLoc.textContent = where+' \u00b7 '+got+'/'+TOTAL_CRYSTALS+' \u00b7 '+ship.score+'PT';
+  /* Prima questo ridisegnava TUTTO il cassetto (sbRenderDrawer, innerHTML compreso) a ogni
+     fotogramma — 60 volte al secondo — qualunque fosse la scheda aperta. Per STAT va bene (sono
+     solo numeri che cambiano da soli), ma per EQUIP distruggeva e ricreava i bottoni sotto il
+     dito di chi stava clickando: un vero click del mouse (mousedown poi mouseup, con un minimo
+     di tempo in mezzo) puo' perdere il bersaglio se l'elemento sparisce a meta' gesto — segnalato
+     dall'utente 23/08/2026 ("il bottone non sembra nemmeno un bottone"), non riproducibile con
+     un click sintetico istantaneo (Playwright) proprio perche' quello non ha quel ritardo.
+     Ora: STAT continua a rincorrere i numeri live; EQUIP si ridisegna SOLO quando cambia
+     davvero (il click handler lo fa già lui); MAPPA aggiorna solo il canvas, senza ricreare
+     l'elemento, cosi' segue l'eroe che si muove senza lo stesso rischio (li' non ci sono bottoni). */
+  if(sbDrawer.classList.contains('open')){
+    if(sbTab==='status') sbRenderDrawer();
+    else if(sbTab==='map' && state==='planet' && planetMap) drawGroundMapMini();
+  }
+}
+
+/* Negozio: estratto in shop.js, script src qui sotto — stessa posizione originale nel flusso. */
+</script>
+<script src="shop.js"></script>
+<script>
+"use strict";
+
+/* Dialoghi + Omni-Decoder: estratti in dialogue-ui.js, script src qui sotto — stessa posizione
+   originale nel flusso. */
+</script>
+<script src="dialogue-ui.js"></script>
+<script>
+"use strict";
+
+/* Particelle + ondate pirata + combattimento spazio/terra + render spazio+HUD: estratti in
+   space-combat.js, script src qui sotto — stessa posizione originale nel flusso. */
+</script>
+<script src="space-combat.js"></script>
+<script>
+"use strict";
+
+/* Generazione pianeta (genWorldPlanet/genPlanet, TS/MW/MH/planetCache): estratta in
+   planet-gen.js, script src qui sotto — stessa posizione originale nel flusso. */
+</script>
+<script src="planet-gen.js"></script>
+<script>
+"use strict";
+/* Hub stazione (genHub+BASE_NPCS) + stato/movimento eroe su pianeta (enterPlanet/
+   walkable/stickDir/chaseDir/updPlanet) + rendering pianeta (drawTile/drawPlanetMode/
+   drawPlanetHUD): estratti in planet-mode.js, script src qui sotto — stessa posizione
+   originale nel flusso. Ultimo pezzo del filone A: da qui in poi resta stato di gioco,
+   transizioni/title/win, loop. */
+</script>
+<script src="planet-mode.js"></script>
+<!-- il motore della storia va per ULTIMO: usa say/openDialog/decoder/ship definiti sopra -->
+<script src="story-engine.js"></script>
+<script>
+"use strict";
+/* ---------- Transizioni atterraggio/decollo ---------- */
+function drawTransition(dt,t){
+  trans.t+=dt;
+  const k=clamp(trans.t/trans.dur,0,1);
+  if(state==='landing'){
+    // zoom sul pianeta
+    const p=trans.planet;
+    const camx=ship.x-W/2, camy=ship.y-H/2;
+    drawSpace(t);
+    ctx.fillStyle='rgba(5,7,15,'+(k*k)+')'; ctx.fillRect(0,0,W,H);
+    const rr = p.r*(1+k*10);
+    ctx.save(); ctx.globalAlpha=Math.min(1,k*1.6);
+    const px=lerp(p.x-camx, W/2, k), py=lerp(p.y-camy, H/2, k);
+    // un luogo con immagine propria (pianeta Kenney, relitto) zooma con la SUA immagine
+    const disegno = (p.im && p.im.complete && p.im.naturalWidth) ? p.im : p.tex;
+    if(disegno) ctx.drawImage(disegno, px-rr, py-rr, rr*2, rr*2);
+    ctx.restore();
+    ctx.fillStyle='#dfe8ff'; ctx.textAlign='center';
+    ctx.font='12px "Press Start 2P", monospace';
+    if(k>0.4) ctx.fillText((p.type==='hub'?'ATTRACCO A ':'ATTERRAGGIO SU ')+p.name+'…', W/2, H/2);
+    if(k>=1){ enterPlanet(p,t); }
+  } else { // takeoff
+    drawPlanetMode(t);
+    ctx.fillStyle='rgba(5,7,15,'+k+')'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#dfe8ff'; ctx.textAlign='center';
+    ctx.font='12px "Press Start 2P", monospace';
+    ctx.fillText('DECOLLO…', W/2, H/2);
+    if(k>=1){
+      const p=trans.planet;
+      const a=rand()*TAU;
+      ship.x=p.x+Math.cos(a)*(p.r+120); ship.y=p.y+Math.sin(a)*(p.r+120);
+      ship.vx=Math.cos(a)*120; ship.vy=Math.sin(a)*120; ship.a=a; ship.inv=2;
+      state='space'; waveT=Math.max(waveT,5);
+    }
+  }
+  ctx.textAlign='left';
+}
+
+/* ---------- Titolo e vittoria ---------- */
+let titleT=0;
+function drawTitle(dt,t){
+  titleT+=dt;
+  ctx.fillStyle='#05070f'; ctx.fillRect(0,0,W,H);
+  drawStars(t*20, t*8, t);
+  // pianeta decorativo
+  const p=PLANETS[0];
+  ctx.save(); ctx.globalAlpha=0.9;
+  ctx.drawImage(p.tex, W*0.72, H*0.16, 150,150); ctx.restore();
+  const g=ctx.createRadialGradient(W*0.72+75,H*0.16+75,60,W*0.72+75,H*0.16+75,120);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,BIOMES.flora.atmo);
+  ctx.textAlign='center';
+  ctx.font=(W<640?'26px':'42px')+' "Press Start 2P", monospace';
+  ctx.fillStyle='#7df9ff';
+  ctx.shadowColor='#7df9ff'; ctx.shadowBlur=18;
+  ctx.fillText('STAR DRIFTER', W/2, H*0.3);
+  ctx.shadowBlur=0;
+  ctx.font='10px "Press Start 2P", monospace';
+  ctx.fillStyle='#6b7a9c';
+  ctx.fillText('esplora · atterra · colleziona', W/2, H*0.3+34);
+  // sprite animati
+  ctx.save(); ctx.translate(W/2-118, H*0.46+16); ctx.rotate(Math.PI/6+Math.sin(t*1.4)*0.1);
+  ctx.drawImage(PIRATE_SPRS[0],0,0,PIRATE_SPRS[0].width,PIRATE_SPRS[0].height,-19,-19,38,38); ctx.restore();
+  ctx.save(); ctx.translate(W/2+118, H*0.46+16); ctx.rotate(-Math.PI/6-Math.sin(t*1.7)*0.1);
+  ctx.drawImage(PIRATE_ELITE,0,0,PIRATE_ELITE.width,PIRATE_ELITE.height,-21,-21,42,42); ctx.restore();
+  ctx.save(); ctx.translate(W/2, H*0.5+Math.sin(t*2)*6);
+  ctx.drawImage(SHIPSPR,0,0,SHIPSPR.width,SHIPSPR.height,-26,-26,52,52); ctx.restore();
+  ctx.fillStyle='#dfe8ff';
+  const lines = [
+    '←→ ruota   ↑ spinta   ↓ freno',
+    'SPAZIO/A spara   E/B atterra e decolla',
+    'raccogli '+TOTAL_CRYSTALS+' cristalli su '+PLANETS.length+' pianeti'
+  ];
+  lines.forEach((l,i)=>ctx.fillText(l, W/2, H*0.66+i*22));
+  if(Math.floor(t*1.6)%2===0){
+    ctx.fillStyle='#ffcf5c';
+    ctx.fillText('— PREMI SPAZIO o A PER INIZIARE —', W/2, H*0.85);
+  }
+  ctx.font='9px "Press Start 2P", monospace'; ctx.fillStyle='#6b7a9c';
+  ctx.fillText('N — nuova partita (azzera i progressi salvati)', W/2, H*0.85+22);
+  ctx.textAlign='left';
+  /* Prima l'UNICO modo di azzerare sd_save era arrivare alla schermata di fine gioco — cioè
+     completare l'intera galassia. Chi restava bloccato all'inizio (es. salvataggio vecchio con
+     un momento della storia già superato) non aveva alcun modo di ripartire pulito (23/08/2026).
+     Qui nessun location.reload(): siamo ancora sul titolo, si riparte semplicemente da qui. */
+  if(take('n')){
+    if(window.STORY) STORY.reset();
+    state='space'; audio.takeoff();
+    if(window.STORY) STORY.fire('start',{});
+    say('NUOVA PARTITA — ROTTA VERSO I PIANETI!',2.5);
+  } else if(take('Space')||take('Enter')||take('e')){
+    state='space'; audio.takeoff();
+    /* `start` esce QUI e non al caricamento (06/08/2026): prima usciva mentre eri ancora sul
+       titolo, dove i messaggi non si disegnano nemmeno — quando premevi Spazio era gia' svanito.
+       Il difetto non si vedeva provando il motore a mano: si vede solo giocando dal titolo. */
+    if(window.STORY) STORY.fire('start',{});
+    if(!msgT) say('ROTTA VERSO I PIANETI!',2.5);
+  }
+}
+let winT=0;
+function drawWin(dt,t){
+  winT+=dt;
+  ctx.fillStyle='#05070f'; ctx.fillRect(0,0,W,H);
+  drawStars(t*30,t*10,t);
+  if(rand()<0.12) puff(rand()*W, rand()*H*0.7, 10, ['#7df9ff','#ffcf5c','#8dfd6a','#ff8bd0'][Math.floor(rand()*4)], 120, 1);
+  updParticles(dt); drawParticles(0,0);
+  ctx.textAlign='center';
+  ctx.font=(W<640?'20px':'34px')+' "Press Start 2P", monospace';
+  ctx.fillStyle='#8dfd6a'; ctx.shadowColor='#8dfd6a'; ctx.shadowBlur=16;
+  ctx.fillText('GALASSIA COMPLETATA!', W/2, H*0.34);
+  ctx.shadowBlur=0;
+  ctx.font='11px "Press Start 2P", monospace'; ctx.fillStyle='#dfe8ff';
+  ctx.fillText(TOTAL_CRYSTALS+' cristalli recuperati', W/2, H*0.34+40);
+  ctx.fillText('PUNTI: '+ship.score, W/2, H*0.34+66);
+  /* Prima "nuova partita" qui non faceva altro che location.reload() — che con il salvataggio
+     di sd_save (story-engine.js) NON è una partita nuova, riparte esattamente da qui (23/08/2026).
+     E non c'era comunque un modo di restare a giocare: l'unica uscita era ricaricare la pagina.
+     Ora due strade separate, in chiaro: proseguire (non tocca nulla, si torna a volare) o
+     ricominciare davvero (STORY.reset() prima del reload). */
+  ctx.font='10px "Press Start 2P", monospace'; ctx.fillStyle='#8ef7ff';
+  ctx.fillText('Hai completato il prototipo — il resto della galassia', W/2, H*0.34+96);
+  ctx.fillText('resta aperto da esplorare.', W/2, H*0.34+114);
+  if(Math.floor(t*1.6)%2===0){
+    ctx.fillStyle='#ffcf5c';
+    ctx.fillText('SPAZIO/E — continua a esplorare', W/2, H*0.7);
+  }
+  ctx.fillStyle='#6b7a9c';
+  ctx.fillText('N — nuova partita (azzera i progressi)', W/2, H*0.7+22);
+  ctx.textAlign='left';
+  // 'n' e' gestito direttamente nel listener keydown (vero gesto utente, v. sopra): qui solo continua
+  if(winT>1 && (take('Space')||take('Enter')||take('e'))) state='space';
+}
+
+/* ---------- Loop principale ---------- */
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  const t=now/1000;
+  /* requestAnimationFrame(loop) sta in fondo: se una riga sopra lancia un'eccezione non presa,
+     quella riga non viene mai raggiunta e il gioco si ferma per sempre al fotogramma corrente,
+     silenziosamente (nessun errore visibile a schermo). Successo davvero il 23/08/2026 — un
+     crash in updSpace dava l'impressione che "l'equip non si potesse cambiare", ma in realtà
+     l'intero gioco era già congelato. Try/catch qui: un fotogramma rotto si salta, non si perde
+     la partita. */
+  try {
+    if(window.STORY){ STORY.tick(t); if(state==='planet') STORY.checkWeather(currentPlanet,t); }
+    syncSidebar();
+    if(state==='title') drawTitle(dt,t);
+    else if(state==='space'){ updSpace(dt,t); drawSpace(t); }
+    else if(state==='planet'){ updPlanet(dt,t); drawPlanetMode(t); }
+    else if(state==='landing'||state==='takeoff') drawTransition(dt,t);
+    else if(state==='win') drawWin(dt,t);
+  } catch(e) { console.error('[loop] fotogramma saltato:', e); }
+  requestAnimationFrame(loop);
+}
+/* Evento `start`: era nel vocabolario della spec (SPEC_story_pack.md §2) ma non era mai stato
+   agganciato — scoperto montando "Il portello della Vega" il 06/08/2026. Esce una volta sola,
+   a gioco pronto: serve alle storie per dare il primo indirizzo al giocatore. */
+requestAnimationFrame(loop);
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</body>
+</html>
