@@ -375,8 +375,8 @@ const sbDrawerInner=document.getElementById('sb-drawer-inner');
 let sbTab='status';
 const SB_CONTENT={
   status:()=>{
-    const got=PLANETS.reduce((s,p)=>s+p.done,0);
-    const planetsLine=PLANETS.map(p=>p.name+' '+p.done+'/'+CRYSTALS_PER_PLANET+(p.done>=CRYSTALS_PER_PLANET?' \u2713':'')).join(' &nbsp;\u00b7&nbsp; ');
+    const got=LUOGHI.reduce((s,p)=>s+p.done,0);
+    const planetsLine=PLANETS.map(p=>p.name+' '+p.done+'/'+p.nCrystals+(p.done>=p.nCrystals?' \u2713':'')).join(' &nbsp;\u00b7&nbsp; ');
     return '<div class="amber">DIARIO DI BORDO</div>'
       +'<div class="dim">Recupera i cristalli sui '+PLANETS.length+' pianeti.</div>'
       +'<div>Totale '+got+'/'+TOTAL_CRYSTALS+' &nbsp;\u00b7&nbsp; Punti '+ship.score+'</div>'
@@ -476,7 +476,7 @@ function syncSidebar(){
     sbHullLabel.textContent='SCAFO';
     sbHullFill.style.width = Math.max(0, ship.hull/ship.maxHull*100)+'%';
   }
-  const got=PLANETS.reduce((s,p)=>s+p.done,0);
+  const got=LUOGHI.reduce((s,p)=>s+p.done,0);
   const where = (state==='planet'||state==='landing') && currentPlanet ? currentPlanet.name : 'SPAZIO APERTO';
   /* Se la storia ha dato un obiettivo, quello ha la precedenza sul conteggio cristalli: in un
      gioco che racconta, "cosa devo fare" conta piu' di "quanti me ne mancano" (06/08/2026). */

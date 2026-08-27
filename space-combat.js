@@ -577,16 +577,14 @@ function drawSpaceHUD(t){
   ctx.fillStyle='rgba(8,12,26,0.7)'; ctx.beginPath(); ctx.arc(mx,my,mR,0,TAU); ctx.fill();
   ctx.strokeStyle='rgba(125,249,255,0.4)'; ctx.lineWidth=1.5; ctx.stroke();
   const sc=mR/2200;
-  /* Luogo dell'obiettivo di storia attuale: il testo lo nomina sempre (v. story-pack.js), qui si
-     cerca per nome fra tutti i luoghi (LUOGHI = corpi + oggetti atterrabili, world-gen.js). Solo
-     lettura di STORY.state.obiettivo gia' esposto altrove: nessuna modifica al motore (23/08/2026). */
+  /* Luogo dell'obiettivo di storia attuale: prima si cercava il name per intero dentro il testo
+     libero dell'obiettivo, e falliva quando story-pack.js usava una forma abbreviata ("Vega"
+     invece di "RELITTO DELLA VEGA") — PIANO_PULIZIA_REPO.md bug P0-4, corretto il 26/08/2026
+     portando ogni trigger a dichiarare `obiettivoLuogo` esplicito (SPEC_story_pack.md §4). */
   let obTarget=null;
   try {
-    const ob = window.STORY && STORY.state && STORY.state.obiettivo;
-    if(ob){
-      const upOb = ob.toUpperCase();
-      obTarget = LUOGHI.find(l => l.name && upOb.indexOf(l.name.toUpperCase())>=0) || null;
-    }
+    const luogoNome = window.STORY && STORY.state && STORY.state.obiettivoLuogo;
+    if(luogoNome) obTarget = LUOGHI.find(l => l.name===luogoNome) || null;
   } catch(e){}
   // fenomeni del pack: aloni sotto a tutto, così si vede dove NON passare
   for(const z of SPACE_POIS){

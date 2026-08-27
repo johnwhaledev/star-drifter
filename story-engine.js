@@ -19,8 +19,8 @@ const STORY = (function () {
 
   /* ------------------------------- salvataggio ------------------------------- */
   function nuovo() {
-    return { v: SAVE_V, chapter: 0, obiettivo: null, flags: {}, once: [], timers: {},
-             decoder: 0, credits: 0, owned: {}, equipped: {}, planets: {} };
+    return { v: SAVE_V, chapter: 0, obiettivo: null, obiettivoLuogo: null, flags: {}, once: [], timers: {},
+             decoder: 0, credits: 0, owned: {}, equipped: {}, planets: {}, ammoUpgrade: false };
   }
   /* owned/equipped/credits erano nello schema di sd_save fin dalla v1 (SPEC_story_pack.md §5)
      ma nessun codice li scriveva o leggeva davvero — trovato il 23/08/2026 quando un giocatore
@@ -34,6 +34,7 @@ const STORY = (function () {
       S.equipped = { ship: loadout.ship.id, shipWeapon: loadout.shipWeapon.id,
                       suit: loadout.suit.id, groundWeapon: loadout.groundWeapon.id };
       S.credits = ship.score;
+      S.ammoUpgrade = !!AMMO_ITEM.bought;
     } catch (e) {}
   }
   function applyEquipFrom(saved) {
@@ -51,6 +52,7 @@ const STORY = (function () {
         else if (slot === 'suit') { hero.maxHp = g.maxHP; hero.hp = g.maxHP; }
       }
       if (typeof saved.credits === 'number' && saved.credits >= 0) ship.score = saved.credits;
+      AMMO_ITEM.bought = !!saved.ammoUpgrade;
     } catch (e) { console.warn('[STORY] ripristino equip fallito:', e.message); }
   }
   function load() {
@@ -84,6 +86,7 @@ const STORY = (function () {
         else if (slot === 'suit') { hero.maxHp = g.maxHP; hero.hp = g.maxHP; }
       }
       ship.score = 0;
+      AMMO_ITEM.bought = false;
     } catch (e) { console.warn('[STORY] reset equip fallito:', e.message); }
     salva();
     return S;
@@ -156,8 +159,13 @@ const STORY = (function () {
     clearFlag(a) { delete S.flags[a]; },
     setChapter(a) { S.chapter = a | 0; },
     // obiettivo corrente, mostrato sempre nella barra in alto: un messaggio a schermo dura
-    // pochi secondi e si perde, questo resta finche' non lo cambi ('' lo toglie)
-    obiettivo(a) { S.obiettivo = (typeof a === 'string' && a) ? a : null; },
+    // pochi secondi e si perde, questo resta finche' non lo cambi ('' lo toglie). Forma oggetto
+    // {text,luogo} aggiunta il 26/08/2026 (PIANO_PULIZIA_REPO.md, bug P0-4): `luogo` e' il name
+    // esatto di un LUOGHI, usato dal marcatore radar invece di cercare il testo libero.
+    obiettivo(a) {
+      if (a && typeof a === 'object') { S.obiettivo = a.text || null; S.obiettivoLuogo = a.luogo || null; }
+      else { S.obiettivo = (typeof a === 'string' && a) ? a : null; S.obiettivoLuogo = null; }
+    },
     give(a) {
       if (a.credits != null) { try { ship.score = (ship.score || 0) + a.credits; } catch (e) {} }
       if (a.item) {

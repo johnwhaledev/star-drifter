@@ -22,7 +22,7 @@ window.STORY_PACK = {
       on: { event: "start" },
       do: [
         { say: { text: "La Gilda ha un incarico per te. Attracca alla STAZIONE KEPLER.", secs: 5 } },
-        { obiettivo: "Attracca alla Stazione Kepler e parla con KAELA" }
+        { obiettivo: { text: "Attracca alla Stazione Kepler e parla con KAELA", luogo: "STAZIONE KEPLER" } }
       ] },
 
     // 1 — l'incarico
@@ -37,7 +37,7 @@ window.STORY_PACK = {
         ] } },
         { setFlag: "incarico" },
         { setChapter: 1 },
-        { obiettivo: "Raggiungi il RELITTO DELLA VEGA" }
+        { obiettivo: { text: "Raggiungi il RELITTO DELLA VEGA", luogo: "RELITTO DELLA VEGA" } }
       ] },
 
     // 2 — a bordo: nessuno risponde, e il portello e' chiuso dalla parte sbagliata
@@ -50,7 +50,7 @@ window.STORY_PACK = {
           "Il portello di poppa e' sigillato. Il pannello dice: chiuso dall'interno."
         ] } },
         { setFlag: "vista_vega" },
-        { obiettivo: "Il portello e' sigillato: torna alla Kepler e chiedi in giro" }
+        { obiettivo: { text: "Il portello e' sigillato: torna alla Kepler e chiedi in giro", luogo: "STAZIONE KEPLER" } }
       ] },
 
     // 3 — il codice: ZYX-9 quelle paratie le aveva riparate lui
@@ -65,7 +65,7 @@ window.STORY_PACK = {
           "Per tenere fuori qualcosa. O per tenerlo dentro."
         ] } },
         { setFlag: "portello_vega" },
-        { obiettivo: "Hai il codice: torna sulla Vega e apri il portello di poppa" }
+        { obiettivo: { text: "Hai il codice: torna sulla Vega e apri il portello di poppa", luogo: "RELITTO DELLA VEGA" } }
       ] },
 
     // 4 — le pietre: posate, non cadute
@@ -84,7 +84,7 @@ window.STORY_PACK = {
           "Se stai leggendo questo: non riportarle indietro."
         ] } },
         { setFlag: "diario_letto" },
-        { obiettivo: "Torna da KAELA alla Stazione Kepler" }
+        { obiettivo: { text: "Torna da KAELA alla Stazione Kepler", luogo: "STAZIONE KEPLER" } }
       ] },
 
     // 6 — il ritorno: la domanda a cui il gioco non ti fa rispondere

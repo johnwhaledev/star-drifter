@@ -175,6 +175,7 @@ function enterPlanet(p,t){
   hero.tx=hero.fx=planetMap.sx; hero.ty=hero.fy=planetMap.sy;
   hero.px=hero.tx; hero.py=hero.ty; hero.dir='down'; hero.moving=false;
   hero.weatherT=0;
+  hero.heatT=0;
   shopOpen=false; shopPanelEl.classList.add('hidden');
   state='planet';
   const wx = p.type!=='hub' ? getWeather(p,t||0) : {state:'clear'};
@@ -309,7 +310,7 @@ function updPlanet(dt,t){
   // sparo (Phaser)
   if(keys['Space'] && hero.fireCd<=0){
     const GW=loadout.groundWeapon;
-    hero.fireCd=GW.fireRate;
+    hero.fireCd=GW.fireRate*((GW.id==='phaser'&&AMMO_ITEM.bought)?AMMO_FIRE_MUL:1);
     const [ddx,ddy]=DIRV[hero.dir];
     gbullets.push({x:(hero.px+0.5)*TS,y:(hero.py+0.5)*TS,vx:ddx*GW.bulletSpeed,vy:ddy*GW.bulletSpeed,t:0.5,dmg:GW.dmg});
     audio.laser();

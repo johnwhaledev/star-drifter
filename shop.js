@@ -10,13 +10,18 @@
 let shopOpen=false;
 const shopPanelEl=document.getElementById('shopPanel');
 const shopListEl=document.getElementById('shopList');
+/* Moltiplicatore del bonus "Cella Energetica": prima mutava direttamente
+   EQUIP_DB.groundWeapons.phaser.fireRate (oggetto condiviso, mai salvato) — l'upgrade pagato
+   spariva a un reload e si poteva ricomprare (PIANO_PULIZIA_REPO.md, bug P0-3). Ora è un flag
+   su AMMO_ITEM.bought, applicato a runtime in planet-mode.js e persistito da story-engine.js. */
+const AMMO_FIRE_MUL=0.85;
 const SHOP_ITEMS=[
   { id:'repair', name:'Ripara Scafo', desc:'Ripristina lo scafo della navicella al massimo.', cost:20,
     apply:()=>{ ship.hull=ship.maxHull; say('Scafo riparato!',1.5); } },
   { id:'medkit', name:'Kit Medico', desc:'Ripristina la tuta al massimo.', cost:15,
     apply:()=>{ hero.hp=hero.maxHp; say('Tuta rigenerata!',1.5); } },
   { id:'ammo', name:'Cella Energetica', desc:'Riduce il riarmo del Phaser del 15% (una tantum).', cost:30, oneTime:true, bought:false,
-    apply:()=>{ loadout.groundWeapon.fireRate=+(loadout.groundWeapon.fireRate*0.85).toFixed(3); say('Phaser potenziato!',1.5); } },
+    apply:()=>{ say('Phaser potenziato!',1.5); } },
   { id:'eq_blaster', gear:EQUIP_DB.groundWeapons.blaster, slot:'groundWeapon' },
   { id:'eq_recon', gear:EQUIP_DB.suits.recon, slot:'suit' },
   { id:'eq_assalto', gear:EQUIP_DB.suits.assalto, slot:'suit' },
@@ -47,6 +52,7 @@ for(const it of SHOP_ITEMS){
   it.name=it.gear.name; it.desc=it.gear.desc; it.cost=it.gear.cost; it.icon=it.gear.icon;
   it.apply=()=>{ equipGear(it.slot, it.gear); };
 }
+const AMMO_ITEM=SHOP_ITEMS.find(i=>i.id==='ammo');
 function equipGear(slot, gear, fresh=true){
   const cat=SLOT2CAT[slot];
   if(!owned[cat].includes(gear.id)) owned[cat].push(gear.id);
