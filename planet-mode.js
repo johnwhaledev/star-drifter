@@ -467,9 +467,14 @@ function drawPlanetMode(t){
   ctx.fillStyle=B.sky; ctx.fillRect(0,0,W,H);
   const pkx=(rand()-0.5)*shake, pky=(rand()-0.5)*shake;
   ctx.save(); ctx.translate(pkx,pky);
-  // camera
+  // camera — se la mappa è più piccola del viewport (schermi larghi: MW*TS/MH*TS sono fissi
+  // a 1156x1020px), il limite superiore del clamp finisce sotto quello inferiore e clamp()
+  // smette di essere continua: la camera scatta di netto tra i due estremi ogni volta che
+  // l'eroe attraversa la soglia, invece di scorrere. In quel caso si centra la mappa.
   let camx=hero.px*TS - W/2 + TS/2, camy=hero.py*TS - H/2 + TS/2;
-  camx=clamp(camx, -40, MW*TS-W+40); camy=clamp(camy, -60, MH*TS-H+40);
+  const camMaxX=MW*TS-W+40, camMaxY=MH*TS-H+40;
+  camx = camMaxX<-40 ? (MW*TS-W)/2 : clamp(camx,-40,camMaxX);
+  camy = camMaxY<-60 ? (MH*TS-H)/2 : clamp(camy,-60,camMaxY);
   ctx.save(); ctx.translate(-camx,-camy);
   const x0=Math.max(0,Math.floor(camx/TS)-1), x1=Math.min(MW-1,Math.ceil((camx+W)/TS)+1);
   const y0=Math.max(0,Math.floor(camy/TS)-1), y1=Math.min(MH-1,Math.ceil((camy+H)/TS)+1);

@@ -60,8 +60,24 @@
   #mute{position:fixed;top:10px;right:12px;z-index:7;width:38px;height:30px;font-size:11px;
     border-radius:8px;cursor:pointer}
 
+  /* Barra link esterni (repo/sito/Ko-fi): fascia sottile a filo del bordo inferiore, l'unica
+     zona libera in OGNI stato del gioco — titolo, volo, pianeta, con o senza controlli touch
+     (che lasciano comunque 20px liberi sopra il bordo, v. bottom dei .tbtn) e sotto al pannello
+     dialogo (bottom:190px, ben più in alto). Cosi' i link restano raggiungibili sempre, senza
+     competere con la sidebar in alto (dove il pulsante mute finisce gia' coperto dai tab). */
+  #links{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;align-items:center;
+    justify-content:center;gap:10px;height:18px;
+    background:rgba(6,10,22,.72);border-top:1px solid rgba(125,249,255,.22);
+    font-family:'Press Start 2P', monospace;font-size:7px}
+  #links a{color:var(--dim);text-decoration:none;letter-spacing:.5px;-webkit-tap-highlight-color:transparent}
+  #links a:hover,#links a:active{color:var(--accent)}
+  #links .sep{color:rgba(125,249,255,.25)}
+
   /* ---- Sidebar / PipBoy ---- */
-  #sidebar{position:fixed;top:0;left:0;right:0;z-index:9;
+  /* z-index sopra #shopPanel (30): il portafoglio (#sb-credits) deve restare visibile anche
+     col negozio aperto, non solo nell'HUD di gioco normale. La sidebar occupa solo i primi
+     52px in alto, il negozio è centrato sotto: nessuna sovrapposizione con la sua scheda. */
+  #sidebar{position:fixed;top:0;left:0;right:0;z-index:31;
     font-family:'Press Start 2P', ui-monospace, monospace;
     background:linear-gradient(180deg, rgba(6,10,22,0.94), rgba(6,10,22,0.82));
     border-bottom:2px solid rgba(125,249,255,0.35);
@@ -76,6 +92,10 @@
   #sb-hullbar{flex:1;height:8px;background:rgba(255,92,116,0.15);border:1px solid rgba(255,92,116,.4);
     border-radius:2px;overflow:hidden;max-width:160px}
   #sb-hullfill{height:100%;background:#ff5c74;transition:width .25s}
+  /* Portafoglio (crediti): elemento suo proprio, MAI dentro una stringa troncabile — prima
+     stava in coda a #sb-loc e su schermi stretti (o con un obiettivo di storia attivo, che
+     sostituiva la riga intera) spariva dietro l'ellissi o non veniva scritto affatto. */
+  #sb-credits{flex:none;font-size:8px;color:var(--amber);white-space:nowrap}
   #sb-loc{font-size:8px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #sb-tabs{display:flex;flex:none;gap:4px}
   .sb-tab{font-family:inherit;font-size:8px;color:var(--dim);background:rgba(10,16,32,.5);
@@ -144,6 +164,13 @@
 <div id="wrap"><canvas id="cv"></canvas></div>
 <div id="crt"></div>
 <button id="mute" class="tbtn">♪</button>
+<div id="links">
+  <a href="https://github.com/johnwhaledev/star-drifter" target="_blank" rel="noopener noreferrer">GITHUB</a>
+  <span class="sep">·</span>
+  <a href="https://www.johnwhale.com" target="_blank" rel="noopener noreferrer">SITO</a>
+  <span class="sep">·</span>
+  <a href="https://ko-fi.com/johnwhale" target="_blank" rel="noopener noreferrer">KO-FI</a>
+</div>
 <div id="touch">
   <div id="dpad">
     <div class="tbtn" id="bU">▲</div><div class="tbtn" id="bD">▼</div>
@@ -161,6 +188,7 @@
       <div id="sb-hullrow">
         <span id="sb-hulllabel">SCAFO</span>
         <div id="sb-hullbar"><div id="sb-hullfill" style="width:100%"></div></div>
+        <span id="sb-credits">0PT</span>
       </div>
       <div id="sb-loc">—</div>
     </div>
@@ -382,6 +410,7 @@ const sbEl=document.getElementById('sidebar');
 const sbHullFill=document.getElementById('sb-hullfill');
 const sbHullLabel=document.getElementById('sb-hulllabel');
 const sbLoc=document.getElementById('sb-loc');
+const sbCredits=document.getElementById('sb-credits');
 const sbDrawer=document.getElementById('sb-drawer');
 const sbDrawerInner=document.getElementById('sb-drawer-inner');
 let sbTab='status';
@@ -494,8 +523,8 @@ function syncSidebar(){
      gioco che racconta, "cosa devo fare" conta piu' di "quanti me ne mancano" (06/08/2026). */
   let ob=null;
   try { ob = window.STORY && STORY.state && STORY.state.obiettivo; } catch(e){}
-  if(ob) sbLoc.textContent = where+' - '+ob;
-  else sbLoc.textContent = where+' \u00b7 '+got+'/'+TOTAL_CRYSTALS+' \u00b7 '+ship.score+'PT';
+  sbLoc.textContent = ob ? (where+' - '+ob) : (where+' \u00b7 '+got+'/'+TOTAL_CRYSTALS);
+  sbCredits.textContent = ship.score+'PT';
   /* Prima questo ridisegnava TUTTO il cassetto (sbRenderDrawer, innerHTML compreso) a ogni
      fotogramma — 60 volte al secondo — qualunque fosse la scheda aperta. Per STAT va bene (sono
      solo numeri che cambiano da soli), ma per EQUIP distruggeva e ricreava i bottoni sotto il
